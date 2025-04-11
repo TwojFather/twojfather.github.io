@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Minecraft Structure Planner</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+  <script src="https://kit.fontawesome.com/d70da77f79.js" crossorigin="anonymous"></script>
+  <style>
+    html, body { height: 100%; background: #f5f5f5; color: #363636; margin: 0; }
+    .main-container { 
+      height: 100vh; 
+      display: flex; 
+      flex-wrap: nowrap; 
+      overflow: hidden; 
+    }
+    .sidebar { 
+      width: 400px; 
+      flex-shrink: 0; /* Add this to prevent sidebar from shrinking */
+      max-height: 100vh; 
+      overflow-y: auto; 
+      padding: 1.5rem;
+      background: #fff;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    }
+    .canvas-container { 
+      flex: 1;
+      position: relative; 
+      background: #fff; 
+      height: 100%; 
+      overflow: hidden;
+      min-width: 0; /* Add this to prevent flex item overflow */
+    }
+    canvas { 
+      display: block; 
+      background: #fff;
+      width: 100%;
+      height: 100%;
+    }
+    img, canvas { 
+      image-rendering: pixelated; 
+      image-rendering: crisp-edges; 
+      -ms-interpolation-mode: nearest-neighbor; 
+    }
+    #blockSuggestions { 
+      border: 1px solid #dbdbdb; 
+      max-height: 200px; 
+      overflow-y: auto; 
+      display: none;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+    }
+    #blockSuggestions div { 
+      display: flex; 
+      align-items: center; 
+      padding: 0.5rem; 
+      cursor: pointer; 
+      border-bottom: 1px solid #dbdbdb; 
+    }
+    #blockSuggestions div:hover {
+      background: #f5f5f5;
+    }
+    #blockSuggestions div img { 
+      width: 24px; 
+      height: 24px; 
+      margin-right: 0.5rem; 
+    }
+    #infoOverlay { 
+      position: absolute; 
+      top: 1rem; 
+      right: 1rem; 
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 0.75rem;
+      border-radius: 4px;
+      z-index: 1000;
+      font-size: 0.875rem;
+    }
+    .tool-button {
+      width: 100%;
+      margin-bottom: 0.25rem !important; /* Reduced from 0.5rem */
+      justify-content: flex-start !important;
+    }
+    .layer-item {
+      padding: 0.5rem;
+      margin-bottom: 0.25rem;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #f5f5f5;
+      color: #363636;
+      border: 1px solid #dbdbdb;
+    }
+    .layer-item.is-active {
+      background: #3273dc;
+      color: #fff;
+    }
+    /* Add new style for layer controls */
+    .layer-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .layer-controls .button {
+      flex: 1;
+    }
+    input[type="text"] {
+      color: #363636;
+      background: #fff;
+    }
+
+    input[type="color"] {
+      background: #fff;
+      border: 1px solid #dbdbdb;
+    }
+    /* Dark mode styles */
+    body.is-dark { 
+      background: #0a0a0a; 
+      color: #fff; 
+    }
+    body.is-dark .sidebar {
+      background: #242424;
+      border-right: 1px solid #363636;
+    }
+    body.is-dark .canvas-container {
+      background: #363636;
+    }
+    body.is-dark canvas {
+      background: #363636;
+    }
+    body.is-dark #blockSuggestions {
+      background: #242424;
+      border-color: #363636;
+    }
+    body.is-dark #blockSuggestions div {
+      border-color: #363636;
+      color: #fff;
+    }
+    body.is-dark #blockSuggestions div:hover {
+      background: #363636;
+    }
+    body.is-dark .layer-item {
+      background: #363636;
+      color: #fff;
+      border-color: #4a4a4a;
+    }
+    body.is-dark .layer-item.is-active {
+      background: #3273dc;
+      color: #fff;
+    }
+    body.is-dark input[type="text"] {
+      background: #363636;
+      color: #fff;
+      border-color: #4a4a4a;
+    }
+    body.is-dark input[type="color"] {
+      background: #363636;
+      border-color: #4a4a4a;
+    }
+    body.is-dark .button.is-light {
+      background-color: #363636;
+      color: #fff;
+      border-color: #4a4a4a;
+    }
+    body.is-dark .button.is-light:hover {
+      background-color: #4a4a4a;
+    }
+    body.is-dark .label {
+      color: #fff;
+    }
+    body.is-dark .checkbox {
+      color: #fff;
+    }
+    body.is-dark .modal-card-title {
+      color: #fff;
+    }
+    body.is-dark .modal-card-head,
+    body.is-dark .modal-card-body,
+    body.is-dark .modal-card-foot {
+      background-color: #242424;
+      border-color: #4a4a4a;
+    }
+    body.is-dark .select select {
+      background-color: #363636;
+      color: #fff;
+      border-color: #4a4a4a;
+    }
+    body.is-dark .select:not(.is-multiple):not(.is-loading)::after {
+      border-color: #fff;
+    }
+    .title, .label {
+      color: #363636 !important;
+      font-weight: 600;
+    }
+
+    /* Dark mode override */
+    body.is-dark .title, 
+    body.is-dark .label {
+      color: #ffffff !important;
+    }
+    .measurement-label {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div class="sidebar">
+      <h1 id="plannerTitle" class="title is-5 has-text-centered mb-3">Planer Minecraft</h1>
+      <div class="field mb-3">
+        <div class="control">
+          <label class="checkbox">
+            <input type="checkbox" id="useColor">
+            Kolor (użyj palety)
+          </label>
+        </div>
+        <input type="color" id="colorPicker" value="#ff0000" class="input mt-2" style="display: none;">
+        <div class="control mt-2">
+          <label class="checkbox">
+            <input type="checkbox" id="useBlock">
+            Block
+          </label>
+        </div>
+        <input type="text" id="blockSearch" placeholder="Szukaj blocku..." class="input mt-2" style="display: none;">
+        <div id="blockSuggestions" class="mt-2"></div>
+      </div>
+      <div class="field mb-3">
+        <label id="toolsLabel" class="label">Narzędzia:</label>
+        <div class="buttons">
+          <button id="btnPencil" class="button is-light tool-button">
+            <span class="icon"><i class="fa-solid fa-pencil"></i></span>
+            <span>Pędzel</span>
+          </button>
+          <button id="btnEraser" class="button is-light tool-button">
+            <span class="icon"><i class="fa-solid fa-eraser"></i></span>
+            <span>Gumka</span>
+          </button>
+          <button id="btnCircle" class="button is-light tool-button">
+            <span class="icon"><i class="fa-regular fa-circle"></i></span>
+            <span>Okrąg</span>
+          </button>
+          <button id="btnLine" class="button is-light tool-button">
+            <span class="icon"><i class="fa-solid fa-slash"></i></span>
+            <span>Linia</span>
+          </button>
+          <button id="btnCurve" class="button is-light tool-button">
+            <span class="icon"><i class="fa-solid fa-bezier-curve"></i></span>
+            <span>Krzywa</span>
+          </button>
+          <button id="btnSelection" class="button is-light tool-button">
+            <span class="icon"><i class="fa-solid fa-mouse-pointer"></i></span>
+            <span>Selekcja</span>
+          </button>
+          <button id="btnRuler" class="button is-light tool-button">
+            <span class="icon"><i class="fa-solid fa-ruler"></i></span>
+            <span>Linijka</span>
+          </button>
+        </div>
+      </div>
+      <div id="circleControls" class="field mb-3" style="display:none;">
+        <label for="circleRadius" class="label">Promień okręgu (kratek):</label>
+        <input type="range" id="circleRadius" min="1" max="40" value="10" class="slider">
+        <span id="circleRadiusVal">10</span>
+        <p id="circleHelp" class="help">
+          1. Kliknij, aby ustawić środek okręgu.<br>2. Drugie kliknięcie narysuje okrąg.
+        </p>
+      </div>
+      <div id="curveControls" class="field mb-3" style="display:none;">
+        <label for="curveOffset" class="label">Przesunięcie krzywizny (komórek):</label>
+        <input type="range" id="curveOffset" min="-20" max="20" value="5" class="slider">
+        <span id="curveOffsetVal">5</span>
+        <p id="curveHelp" class="help">Kliknij pierwszy, a następnie drugi punkt, aby narysować krzywą.</p>
+      </div>
+      <div id="selectionControls" class="field mb-3" style="display:none;">
+        <label id="selectionOpLabel" class="label">Operacja selekcji:</label>
+        <div class="control">
+          <label class="radio">
+            <input type="radio" name="selectionOperation" id="selectFill" value="fill" checked>
+            Wypełnij
+          </label>
+        </div>
+        <div class="control">
+          <label class="radio">
+            <input type="radio" name="selectionOperation" id="selectClear" value="clear">
+            Wyczyść
+          </label>
+        </div>
+        <div class="control">
+          <label class="radio">
+            <input type="radio" name="selectionOperation" id="selectSelect" value="select">
+            Tylko zaznacz
+          </label>
+        </div>
+        <p id="selectionHelp" class="help">
+          Przeciągnij myszką, aby zaznaczyć obszar.<br>
+          Aby przesunąć zaznaczenie, kliknij wewnątrz niego i przeciągnij.<br>
+          Użyj Ctrl+C do kopiowania i Ctrl+V do wklejania.
+        </p>
+      </div>
+      <div class="field mb-3">
+        <button id="btnClear" class="button is-danger is-fullwidth">
+          <span class="icon"><i class="fa-solid fa-trash"></i></span>
+          <span>Wyczyść wszystko</span>
+        </button>
+      </div>
+      <div class="field mb-3" id="layerControls">
+        <h2 id="layerLabel" class="title is-6">Warstwy</h2>
+        <div id="layersList" class="mb-2"></div>
+        <div class="buttons">
+          <button id="btnAddLayer" class="button is-primary">
+            <span class="icon"><i class="fa-solid fa-plus"></i></span>
+            <span>Dodaj warstwę</span>
+          </button>
+          <button id="btnDeleteLayer" class="button is-danger">
+            <span class="icon"><i class="fa-solid fa-minus"></i></span>
+            <span>Usuń warstwę</span>
+          </button>
+          <button id="btnToggleBlend" class="button is-light">
+            <span class="icon"><i class="fa-solid fa-layer-group"></i></span>
+            <span>Przenikanie warstw</span>
+          </button>
+        </div>
+      </div>
+      <div class="field mb-3" id="exportSection">
+        <div class="buttons is-centered">
+          <button id="btnExportJSON" class="button is-light exportButton">
+            <span class="icon"><i class="fa-solid fa-file-code fa-2x"></i></span>
+            <span>Export</span>
+          </button>
+          <button id="btnExportSCHEM" class="button is-light exportButton">
+            <span class="icon"><i class="fa-solid fa-file-export fa-2x"></i></span>
+            <span>Export</span>
+          </button>
+          <button id="btnImportJSON" class="button is-light exportButton">
+            <span class="icon"><i class="fa-solid fa-file-import fa-2x"></i></span>
+            <span>Import</span>
+          </button>
+        </div>
+        <input type="file" id="importFileInput" accept="application/json" style="display: none;">
+      </div>
+      <div class="has-text-centered">
+        <div id="languageSwitcher" class="mb-2">
+          <span id="flagPL" style="cursor: pointer;">🇵🇱</span>
+          <span id="flagGB" style="cursor: pointer;">🇬🇧</span>
+        </div>
+        <div id="darkModeToggle" class="mb-2">
+          <div class="control">
+            <label class="checkbox">
+              <input type="checkbox" id="darkModeCheckbox">
+              Dark Mode
+            </label>
+          </div>
+        </div>
+        <div id="footer" class="is-size-7">Wersja: 1.0</div>
+      </div>
+    </div>
+    <div class="flex-grow-1 p-0">
+      <div class="canvas-container">
+        <canvas id="plannerCanvas"></canvas>
+        <div id="infoOverlay">x: 0, y: 0<br>Mode: -</div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="exportModal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">Eksport do .schem</p>
+        <button class="delete" aria-label="close"></button>
+      </header>
+      <section class="modal-card-body">
+        <form id="exportForm">
+          <div class="field">
+            <label for="minecraftVersion" class="label">Wersja Minecrafta</label>
+            <div class="control">
+              <div class="select">
+                <select id="minecraftVersion">
+                  <option value="2730">1.16.5</option>
+                  <option value="2975">1.18</option>
+                  <option value="3180">1.19</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+      <footer class="modal-card-foot">
+        <button id="btnExportConfirm" class="button is-primary">Eksportuj</button>
+        <button class="button">Anuluj</button>
+      </footer>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let allBlocks = [];
+    const blockImages = {};
+    fetch('https://assets.mcasset.cloud/1.21.4/assets/minecraft/textures/block/_list.json')
+      .then(response => response.json())
+      .then(data => {
+        if (data.files && Array.isArray(data.files)) {
+          const validFiles = data.files.filter(filename => filename.endsWith('.png'));
+          allBlocks = validFiles.map(filename => {
+            const id = filename.replace('.png', '');
+            const name = id.replace(/_/g, ' ');
+            const texture = "https://assets.mcasset.cloud/1.21.4/assets/minecraft/textures/block/" + filename;
+            return { id, name, texture };
+          });
+          allBlocks.forEach(block => {
+            blockImages[block.id] = new Image();
+            blockImages[block.id].src = block.texture;
+          });
+        }
+      })
+      .catch(console.error);
+
+    let locales = {};
+    let currentLocale = "pl";
+
+    fetch('locales.json')
+      .then(response => response.json())
+      .then(data => {
+        locales = data;
+        if (document.readyState === 'complete') {
+          updateLocale();
+        } else {
+          document.addEventListener('DOMContentLoaded', updateLocale);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading locales:', error);
+      });
+
+    function updateLocale() {
+      if (!locales[currentLocale]) {
+        console.error('Missing locale:', currentLocale);
+        return;
+      }
+
+      const texts = locales[currentLocale];
+      
+      // Helper function to safely update element content
+      const updateElement = (id, text) => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.textContent = text;
+        }
+      };
+
+      // Helper function to safely update element HTML
+      const updateElementHTML = (id, text) => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.innerHTML = text;
+        }
+      };
+
+      // Helper function to update button with icon
+      const updateButtonWithIcon = (id, text, iconClass) => {
+        const button = document.getElementById(id);
+        if (button) {
+          button.innerHTML = `<span class="icon"><i class="${iconClass}"></i></span><span>${text}</span>`;
+        }
+      };
+
+      try {
+        // Update basic text elements
+        updateElement('plannerTitle', texts.plannerTitle);
+        updateElement('toolsLabel', texts.toolsLabel);
+        updateElement('labelUseColor', texts.labelUseColor);
+        updateElement('labelUseBlock', texts.labelUseBlock);
+        updateElement('layerLabel', texts.layerLabel);
+        updateElement('labelDarkMode', texts.labelDarkMode);
+        
+        // Update buttons with icons
+        updateButtonWithIcon('btnPencil', texts.btnPencil, 'fa-solid fa-pencil');
+        updateButtonWithIcon('btnEraser', texts.btnEraser, 'fa-solid fa-eraser');
+        updateButtonWithIcon('btnCircle', texts.btnCircle, 'fa-regular fa-circle');
+        updateButtonWithIcon('btnLine', texts.btnLine, 'fa-solid fa-slash');
+        updateButtonWithIcon('btnCurve', texts.btnCurve, 'fa-solid fa-bezier-curve');
+        updateButtonWithIcon('btnSelection', texts.btnSelection, 'fa-solid fa-mouse-pointer');
+        updateButtonWithIcon('btnClear', texts.btnClear, 'fa-solid fa-trash');
+        updateButtonWithIcon('btnAddLayer', texts.btnAddLayer, 'fa-solid fa-plus');
+        updateButtonWithIcon('btnDeleteLayer', texts.btnDeleteLayer, 'fa-solid fa-minus');
+        updateButtonWithIcon('btnToggleBlend', texts.btnToggleBlend, 'fa-solid fa-layer-group');
+        updateButtonWithIcon('btnExportJSON', texts.btnExportJSON, 'fa-solid fa-file-code');
+        updateButtonWithIcon('btnExportSCHEM', 'Export SCHEM', 'fa-solid fa-file-export');
+        updateButtonWithIcon('btnImportJSON', texts.btnImportJSON, 'fa-solid fa-file-import');
+        updateButtonWithIcon('btnRuler', texts.btnRuler, 'fa-solid fa-ruler');
+
+        // Update help texts
+        updateElementHTML('circleHelp', texts.circleHelp);
+        updateElementHTML('curveHelp', texts.curveHelp);
+        updateElementHTML('selectionHelp', texts.selectionHelp);
+
+        // Update selection controls
+        updateElement('selectionOpLabel', texts.selectionOpLabel);
+        updateElement('selectFill', texts.labelFill);
+        updateElement('selectClear', texts.labelClear);
+        updateElement('selectSelect', texts.labelSelect);
+
+        // Update modal texts
+        const modal = document.getElementById('exportModal');
+        if (modal) {
+          const title = modal.querySelector('.modal-card-title');
+          const exportBtn = modal.querySelector('#btnExportConfirm');
+          const cancelBtn = modal.querySelector('.button:not(.is-primary)');
+          if (title) title.textContent = texts.exportModalTitle || 'Eksport do .schem';
+          if (exportBtn) exportBtn.textContent = texts.btnExport || 'Eksportuj';
+          if (cancelBtn) cancelBtn.textContent = texts.btnCancel || 'Anuluj';
+        }
+
+        // Update version
+        updateElement('footer', texts.version);
+        
+        // Force redraw of info overlay if we have last mouse position
+        if (lastMouseCell) {
+          updateInfoOverlay(lastMouseCell.cellX, lastMouseCell.cellY);
+        }
+      } catch (error) {
+        console.error('Error updating locale:', error);
+      }
+    }
+
+    document.getElementById('flagPL').addEventListener('click', () => { currentLocale = "pl"; updateLocale(); });
+    document.getElementById('flagGB').addEventListener('click', () => { currentLocale = "en"; updateLocale(); });
+    document.getElementById('darkModeCheckbox').addEventListener('change', function() {
+      document.body.classList.toggle('is-dark', this.checked);
+    });
+    const CELL_SIZE = 16;
+    const canvas = document.getElementById('plannerCanvas');
+    const ctx = canvas.getContext('2d');
+    const useColorCheckbox = document.getElementById('useColor');
+    const colorPicker = document.getElementById('colorPicker');
+    const useBlockCheckbox = document.getElementById('useBlock');
+    const blockSearch = document.getElementById('blockSearch');
+    const blockSuggestions = document.getElementById('blockSuggestions');
+    const btnPencil = document.getElementById('btnPencil');
+    const btnEraser = document.getElementById('btnEraser');
+    const btnCircle = document.getElementById('btnCircle');
+    const btnLine = document.getElementById('btnLine');
+    const btnCurve = document.getElementById('btnCurve');
+    const btnSelection = document.getElementById('btnSelection');
+    const btnRuler = document.getElementById('btnRuler');
+    const btnClear = document.getElementById('btnClear');
+    const btnExportJSON = document.getElementById('btnExportJSON');
+    const btnExportSCHEM = document.getElementById('btnExportSCHEM');
+    const btnImportJSON = document.getElementById('btnImportJSON');
+    const importFileInput = document.getElementById('importFileInput');
+    const circleRadiusSlider = document.getElementById('circleRadius');
+    const circleRadiusVal = document.getElementById('circleRadiusVal');
+    const circleControls = document.getElementById('circleControls');
+    const curveOffsetSlider = document.getElementById('curveOffset');
+    const curveOffsetVal = document.getElementById('curveOffsetVal');
+    const curveControls = document.getElementById('curveControls');
+    const selectionControls = document.getElementById('selectionControls');
+    const layersList = document.getElementById('layersList');
+    const btnAddLayer = document.getElementById('btnAddLayer');
+    const btnDeleteLayer = document.getElementById('btnDeleteLayer');
+    const btnToggleBlend = document.getElementById('btnToggleBlend');
+    circleRadiusSlider.addEventListener('input', () => { circleRadiusVal.textContent = circleRadiusSlider.value; });
+    curveOffsetSlider.addEventListener('input', () => { curveOffsetVal.textContent = curveOffsetSlider.value; });
+    let gridWidth, gridHeight;
+    let layers = [];
+    let currentLayer = 0;
+    let showAllLayers = false;
+    let currentTool = 'pencil';
+    let circleCenter = null, lineStart = null, curveStart = null;
+    let selectionActive = false;
+    let selectionStart = null, selectionEnd = null;
+    let movingSelection = false;
+    let moveStartCell = null;
+    let originalSelectionRect = null;
+    let selectionBuffer = null;
+    let lastMouseCell = null;
+    let chosenBlockId = null;
+    let rulerMode = false;
+    let currentMeasurement = null;
+
+    function createGridArray(w, h, initialValue) {
+      const arr = [];
+      for (let y = 0; y < h; y++) {
+        const row = [];
+        for (let x = 0; x < w; x++) { row.push(initialValue); }
+        arr.push(row);
+      }
+      return arr;
+    }
+    function updateLayerList() {
+      layersList.innerHTML = '';
+      layers.forEach((layer, index) => {
+        const layerItem = document.createElement('div');
+        layerItem.textContent = 'Warstwa ' + (index + 1);
+        if (index === currentLayer) layerItem.classList.add('is-active');
+        layerItem.classList.add('layer-item');
+        layerItem.addEventListener('click', () => { currentLayer = index; updateLayerList(); drawEverything(); });
+        layersList.appendChild(layerItem);
+      });
+    }
+    function setCellValue(x, y, cellValue) {
+      if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) { layers[currentLayer][y][x] = cellValue; }
+    }
+    function drawGridLayer(layer) {
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          const cell = layer[y][x];
+          if (cell) {
+            if (cell.type === 'color') { ctx.fillStyle = cell.value; ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE); }
+            else if (cell.type === 'block') {
+              const img = blockImages[cell.value];
+              if (img && img.complete) { ctx.drawImage(img, x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE); }
+              else { ctx.fillStyle = "#888"; ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE); }
+            }
+          }
+        }
+      }
+    }
+    function drawEverything() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!showAllLayers) { drawGridLayer(layers[currentLayer]); }
+      else {
+        for (let i = 0; i < layers.length; i++) {
+          ctx.globalAlpha = (i === currentLayer) ? 1.0 : 0.5;
+          drawGridLayer(layers[i]);
+        }
+        ctx.globalAlpha = 1.0;
+      }
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= gridWidth; x++) { ctx.beginPath(); ctx.moveTo(x * CELL_SIZE, 0); ctx.lineTo(x * CELL_SIZE, canvas.height); ctx.stroke(); }
+      for (let y = 0; y <= gridHeight; y++) { ctx.beginPath(); ctx.moveTo(0, y * CELL_SIZE); ctx.lineTo(canvas.width, y * CELL_SIZE); ctx.stroke(); }
+      if (currentTool === 'selection' && selectionStart && selectionEnd) { drawSelectionRectangle(); }
+    }
+    function drawSelectionRectangle() {
+      const bbox = getSelectionBoundingBox();
+      const x = bbox.startX * CELL_SIZE;
+      const y = bbox.startY * CELL_SIZE;
+      const width = (bbox.endX - bbox.startX + 1) * CELL_SIZE;
+      const height = (bbox.endY - bbox.startY + 1) * CELL_SIZE;
+      
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 2]);
+      ctx.strokeRect(x, y, width, height);
+      ctx.setLineDash([]);
+
+      const selectionOp = document.querySelector('input[name="selectionOperation"]:checked');
+      // Jeśli tryb linijki lub tryb 'tylko zaznacz' – wyświetl pomiar
+      if (rulerMode || (selectionOp && selectionOp.value === 'select')) {
+        showMeasurement(bbox);
+      }
+    }
+    function showMeasurement(bbox) {
+      removeMeasurement();
+
+      let width = Math.abs(bbox.endX - bbox.startX) + 1;
+      let height = Math.abs(bbox.endY - bbox.startY) + 1;
+
+      // Jeśli zaznaczono pojedynczą kratkę – wymusić 1×1
+      if (bbox.startX === bbox.endX && bbox.startY === bbox.endY) {
+        width = 1;
+        height = 1;
+      }
+
+      const label = document.createElement('div');
+      label.className = 'measurement-label';
+
+      const measurementText =
+        locales[currentLocale]?.measurement || "Size: {w}×{h} blocks";
+      label.textContent = measurementText.replace("{w}", width).replace("{h}", height);
+
+      const canvasContainer = document.querySelector(".canvas-container");
+      canvasContainer.appendChild(label);
+
+      // Pozycjonowanie etykiety nad zaznaczeniem
+      const posX = (bbox.startX + bbox.endX + 1) * CELL_SIZE / 2;
+      const posY = Math.min(bbox.startY, bbox.endY) * CELL_SIZE - 20;
+
+      label.style.left = `${posX - label.offsetWidth / 2}px`;
+      label.style.top = `${posY}px`;
+
+      currentMeasurement = { element: label, bbox };
+    }
+    function removeMeasurement() {
+      const existingMeasurement = document.querySelector('.measurement-label');
+      if (existingMeasurement) {
+        existingMeasurement.remove();
+      }
+      currentMeasurement = null;
+    }
+    function isInsideSelection(x, y) {
+      if (!selectionStart || !selectionEnd) return false;
+      const bbox = getSelectionBoundingBox();
+      return (x >= bbox.startX && x <= bbox.endX && y >= bbox.startY && y <= bbox.endY);
+    }
+    function getSelectionBoundingBox() {
+      const startX = Math.min(selectionStart.cellX, selectionEnd.cellX);
+      const endX = Math.max(selectionStart.cellX, selectionEnd.cellX);
+      const startY = Math.min(selectionStart.cellY, selectionEnd.cellY);
+      const endY = Math.max(selectionStart.cellY, selectionEnd.cellY);
+      return { startX, startY, endX, endY };
+    }
+    function getCurrentCellValue() {
+      const isColor = useColorCheckbox.checked;
+      const isBlock = useBlockCheckbox.checked;
+      if (isBlock && chosenBlockId) return { type: 'block', value: chosenBlockId };
+      if (isColor) return { type: 'color', value: colorPicker.value };
+      return null;
+    }
+    function resizeCanvas() {
+      const container = document.querySelector('.canvas-container');
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      
+      canvas.width = containerWidth;
+      canvas.height = containerHeight;
+      
+      gridWidth = Math.floor(containerWidth / CELL_SIZE);
+      gridHeight = Math.floor(containerHeight / CELL_SIZE);
+      
+      if (layers.length === 0) {
+        layers.push(createGridArray(gridWidth, gridHeight, null));
+      } else {
+        layers = layers.map(() => createGridArray(gridWidth, gridHeight, null));
+      }
+      
+      updateLayerList();
+      drawEverything();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    document.addEventListener('DOMContentLoaded', () => { resizeCanvas(); });
+    useColorCheckbox.addEventListener('change', () => { colorPicker.style.display = useColorCheckbox.checked ? 'block' : 'none'; });
+    useBlockCheckbox.addEventListener('change', () => { blockSearch.style.display = useBlockCheckbox.checked ? 'block' : 'none'; blockSuggestions.innerHTML = ''; blockSuggestions.style.display = 'none'; if (!useBlockCheckbox.checked) chosenBlockId = null; });
+    blockSearch.addEventListener('input', () => { updateBlockSuggestions(); });
+    blockSearch.addEventListener('focus', () => { updateBlockSuggestions(true); });
+    function updateBlockSuggestions(showAll = false) {
+      const query = blockSearch.value.trim().toLowerCase();
+      let matches;
+      if(showAll && query === "") { matches = allBlocks; }
+      else { matches = allBlocks.filter(b => b.name.toLowerCase().includes(query)); }
+      if (!matches.length) { blockSuggestions.innerHTML = '<div>Brak wyników</div>'; blockSuggestions.style.display = 'block'; return; }
+      blockSuggestions.innerHTML = '';
+      matches.forEach(block => {
+        const row = document.createElement('div');
+        row.innerHTML = `<img src="${block.texture}" alt="${block.name}" width="24" height="24" /><span>${block.name}</span>`;
+        row.addEventListener('click', () => { chosenBlockId = block.id; blockSearch.value = block.name; blockSuggestions.innerHTML = ''; blockSuggestions.style.display = 'none'; });
+        blockSuggestions.appendChild(row);
+      });
+      blockSuggestions.style.display = 'block';
+    }
+    btnPencil.addEventListener('click', () => { currentTool = 'pencil'; circleControls.style.display = 'none'; curveControls.style.display = 'none'; selectionControls.style.display = 'none'; circleCenter = null; lineStart = null; curveStart = null; });
+    btnEraser.addEventListener('click', () => { currentTool = 'eraser'; circleControls.style.display = 'none'; curveControls.style.display = 'none'; selectionControls.style.display = 'none'; circleCenter = null; lineStart = null; curveStart = null; });
+    btnCircle.addEventListener('click', () => { currentTool = 'circle'; circleControls.style.display = 'block'; curveControls.style.display = 'none'; selectionControls.style.display = 'none'; circleCenter = null; lineStart = null; curveStart = null; });
+    btnLine.addEventListener('click', () => { currentTool = 'line'; circleControls.style.display = 'none'; curveControls.style.display = 'none'; selectionControls.style.display = 'none'; lineStart = null; circleCenter = null; curveStart = null; });
+    btnCurve.addEventListener('click', () => { currentTool = 'curve'; circleControls.style.display = 'none'; curveControls.style.display = 'block'; selectionControls.style.display = 'none'; circleCenter = null; lineStart = null; curveStart = null; });
+    btnSelection.addEventListener('click', () => { currentTool = 'selection'; circleControls.style.display = 'none'; curveControls.style.display = 'none'; selectionControls.style.display = 'block'; selectionActive = false; selectionStart = null; selectionEnd = null; });
+    btnRuler.addEventListener('click', () => {
+      rulerMode = !rulerMode;
+      btnRuler.classList.toggle('is-active', rulerMode);
+      if (!rulerMode) {
+        removeMeasurement();
+      }
+    });
+    canvas.addEventListener('mousedown', (event) => {
+      if (currentTool !== 'selection') {
+        if (rulerMode) {
+          currentTool = 'selection';
+          selectionActive = true;
+          const { cellX, cellY } = getCellFromPixel(event.clientX, event.clientY);
+          selectionStart = { cellX, cellY };
+          selectionEnd = { cellX, cellY };
+          lastMouseCell = { cellX, cellY };
+          removeMeasurement();
+        }
+        return;
+      }
+      const { cellX, cellY } = getCellFromPixel(event.clientX, event.clientY);
+      lastMouseCell = { cellX, cellY };
+      if (selectionStart && selectionEnd && isInsideSelection(cellX, cellY)) { movingSelection = true; moveStartCell = { cellX, cellY }; originalSelectionRect = { ...getSelectionBoundingBox() }; }
+      else { selectionActive = true; selectionStart = { cellX, cellY }; selectionEnd = { cellX, cellY }; movingSelection = false; }
+    });
+    canvas.addEventListener('mousemove', (event) => {
+      const { cellX, cellY } = getCellFromPixel(event.clientX, event.clientY);
+      lastMouseCell = { cellX, cellY };
+      updateInfoOverlay(cellX, cellY);
+      if (currentTool !== 'selection') return;
+      if (movingSelection) {
+        const dx = cellX - moveStartCell.cellX;
+        const dy = cellY - moveStartCell.cellY;
+        const bbox = originalSelectionRect;
+        selectionStart = { cellX: bbox.startX + dx, cellY: bbox.startY + dy };
+        selectionEnd = { cellX: bbox.endX + dx, cellY: bbox.endY + dy };
+        drawEverything();
+      } else if (selectionActive) { selectionEnd = { cellX, cellY }; drawEverything(); }
+    });
+    canvas.addEventListener('mouseup', (event) => {
+      if (currentTool !== 'selection') return;
+      const { cellX, cellY } = getCellFromPixel(event.clientX, event.clientY);
+      lastMouseCell = { cellX, cellY };
+      if (movingSelection) {
+        const bboxOld = originalSelectionRect;
+        const bboxNew = getSelectionBoundingBox();
+        let temp = [];
+        for (let y = bboxOld.startY; y <= bboxOld.endY; y++) {
+          let row = [];
+          for (let x = bboxOld.startX; x <= bboxOld.endX; x++) {
+            row.push(layers[currentLayer][y][x]);
+            layers[currentLayer][y][x] = null;
+          }
+          temp.push(row);
+        }
+        for (let y = 0; y < temp.length; y++) {
+          for (let x = 0; x < temp[0].length; x++) {
+            const newX = bboxNew.startX + x;
+            const newY = bboxNew.startY + y;
+            if (newX < gridWidth && newY < gridHeight) layers[currentLayer][newY][newX] = temp[y][x];
+          }
+        }
+        movingSelection = false; selectionActive = false;
+        selectionStart = { cellX: bboxNew.startX, cellY: bboxNew.startY };
+        selectionEnd = { cellX: bboxNew.endX, cellY: bboxNew.endY };
+        drawEverything();
+      } else if (selectionActive) {
+        const operation = document.querySelector('input[name="selectionOperation"]:checked').value;
+        if (operation === 'fill') {
+          const val = getCurrentCellValue();
+          if (val) {
+            const bbox = getSelectionBoundingBox();
+            for (let y = bbox.startY; y <= bbox.endY; y++) {
+              for (let x = bbox.startX; x <= bbox.endX; x++) { layers[currentLayer][y][x] = val; }
+            }
+          }
+        } else if (operation === 'clear') {
+          const bbox = getSelectionBoundingBox();
+          for (let y = bbox.startY; y <= bbox.endY; y++) {
+            for (let x = bbox.startX; x <= bbox.endX; x++) { layers[currentLayer][y][x] = null; }
+          }
+        }
+        selectionActive = false;
+        drawEverything();
+      }
+    });
+    canvas.addEventListener('click', (event) => {
+      if (currentTool === 'selection') return;
+      const { cellX, cellY } = getCellFromPixel(event.clientX, event.clientY);
+      if (currentTool === 'pencil') { const val = getCurrentCellValue(); if (val) { setCellValue(cellX, cellY, val); drawEverything(); } }
+      else if (currentTool === 'eraser') { setCellValue(cellX, cellY, null); drawEverything(); }
+      else if (currentTool === 'circle') {
+        if (!circleCenter) { circleCenter = { cellX, cellY }; }
+        else { const radius = parseInt(circleRadiusSlider.value, 10); const val = getCurrentCellValue(); if (val) { drawPixelCircle(circleCenter.cellX, circleCenter.cellY, radius, val); } circleCenter = null; drawEverything(); }
+      }
+      else if (currentTool === 'line') {
+        if (!lineStart) { lineStart = { cellX, cellY }; }
+        else { const val = getCurrentCellValue(); if (val) { drawPixelLine(lineStart.cellX, lineStart.cellY, cellX, cellY, val); } lineStart = null; drawEverything(); }
+      }
+      else if (currentTool === 'curve') {
+        if (!curveStart) { curveStart = { cellX, cellY }; }
+        else { const offsetValue = parseInt(curveOffsetSlider.value, 10); const val = getCurrentCellValue(); if (val) { drawPixelCurve(curveStart.cellX, curveStart.cellY, cellX, cellY, val, offsetValue); } curveStart = null; drawEverything(); }
+      }
+    });
+    function updateInfoOverlay(cellX, cellY) {
+      const infoOverlay = document.getElementById('infoOverlay');
+      const texts = locales[currentLocale]?.infoOverlay;
+      const modeTexts = locales[currentLocale]?.modes;
+      
+      if (!texts || !infoOverlay || !modeTexts) return;
+
+      let mode = modeTexts[currentTool] || currentTool;
+      let materialText = '';
+      const currentVal = getCurrentCellValue();
+      
+      if (currentVal) {
+        if (currentVal.type === 'color') {
+          materialText = `<span style="display:inline-block;width:16px;height:16px;background:${currentVal.value};border:1px solid #fff;margin-right:5px;"></span>`;
+        } else if (currentVal.type === 'block' && blockImages[currentVal.value]) {
+          materialText = `<img src="${blockImages[currentVal.value].src}" style="width:16px;height:16px;vertical-align:middle;margin-right:5px;">`;
+        }
+      }
+
+      infoOverlay.innerHTML = 
+        texts.coordinates.replace('{x}', cellX).replace('{y}', cellY) + '<br>' +
+        texts.mode.replace('{mode}', mode) + '<br>' +
+        (materialText ? materialText : '');
+    }
+    function drawPixelCircle(cx, cy, r, cellValue) {
+      let x = 0, y = r, d = 1 - r;
+      const plotCirclePoints = (cx, cy, x, y, val) => {
+        setCellValue(cx + x, cy + y, val);
+        setCellValue(cx - x, cy + y, val);
+        setCellValue(cx + x, cy - y, val);
+        setCellValue(cx - x, cy - y, val);
+        setCellValue(cx + y, cy + x, val);
+        setCellValue(cx - y, cy + x, val);
+        setCellValue(cx + y, cy - x, val);
+        setCellValue(cx - y, cy - x, val);
+      };
+      while (x <= y) {
+        plotCirclePoints(cx, cy, x, y, cellValue);
+        if (d < 0) d += 2 * x + 3;
+        else { d += 2 * (x - y) + 5; y--; }
+        x++;
+      }
+    }
+    function drawPixelLine(x1, y1, x2, y2, cellValue) {
+      let dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+      let sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
+      let err = dx - dy;
+      while (true) {
+        setCellValue(x1, y1, cellValue);
+        if (x1 === x2 && y1 === y2) break;
+        let e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x1 += sx; }
+        if (e2 < dx) { err += dx; y1 += sy; }
+      }
+    }
+    function drawPixelCurve(x0, y0, x1, y1, cellValue, offset) {
+      const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      const dx = x1 - x0, dy = y1 - y0, len = Math.sqrt(dx * dx + dy * dy);
+      let cpX = mx, cpY = my;
+      if (len !== 0) { cpX = mx + (-dy / len) * offset; cpY = my + (dx / len) * offset; }
+      const steps = 100;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const xt = Math.round((1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cpX + t * t * x1);
+        const yt = Math.round((1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cpY + t * t * y1);
+        setCellValue(xt, yt, cellValue);
+      }
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.ctrlKey && (event.key === 'c' || event.key === 'C')) {
+        if (selectionStart && selectionEnd) {
+          const bbox = getSelectionBoundingBox();
+          selectionBuffer = [];
+          for (let y = bbox.startY; y <= bbox.endY; y++) {
+            let row = [];
+            for (let x = bbox.startX; x <= bbox.endX; x++) {
+              row.push(layers[currentLayer][y][x]);
+            }
+            selectionBuffer.push(row);
+          }
+          // Dodano sprawdzenie czy locales[currentLocale] i locales[currentLocale].help istnieją
+          if (locales[currentLocale] && locales[currentLocale].help) {
+            alert(locales[currentLocale].help.copySuccess);
+          } else {
+            console.warn("Brak tłumaczenia dla copySuccess!");
+            alert("Obszar skopiowany!"); // Domyślny komunikat
+          }
+        }
+        event.preventDefault();
+      }
+      if (event.ctrlKey && (event.key === 'v' || event.key === 'V')) {
+        if (selectionBuffer && lastMouseCell) {
+          const startX = lastMouseCell.cellX, startY = lastMouseCell.cellY;
+          for (let y = 0; y < selectionBuffer.length; y++) {
+            for (let x = 0; x < selectionBuffer[0].length; x++) {
+              const targetX = startX + x, targetY = startY + y;
+              if (targetX < gridWidth && targetY < gridHeight) layers[currentLayer][targetY][targetX] = selectionBuffer[y][x];
+            }
+          }
+          selectionStart = { cellX: startX, cellY: startY };
+          selectionEnd = { cellX: startX + selectionBuffer[0].length - 1, cellY: startY + selectionBuffer.length - 1 };
+          drawEverything();
+        }
+        event.preventDefault();
+      }
+    });
+    btnClear.addEventListener('click', () => { for (let i = 0; i < layers.length; i++) { layers[i] = createGridArray(gridWidth, gridHeight, null); } drawEverything(); });
+    btnAddLayer.addEventListener('click', () => { layers.push(createGridArray(gridWidth, gridHeight, null)); currentLayer = layers.length - 1; updateLayerList(); drawEverything(); });
+    btnDeleteLayer.addEventListener('click', () => {
+      if (layers.length > 1) {
+        layers.splice(currentLayer, 1);
+        currentLayer = layers.length - 1;
+        updateLayerList();
+        drawEverything();
+      } else {
+        alert(locales[currentLocale].help.lastLayer);
+      }
+    });
+    btnToggleBlend.addEventListener('click', () => { showAllLayers = !showAllLayers; btnToggleBlend.textContent = showAllLayers ? "Aktywna warstwa" : "Przenikanie warstw"; drawEverything(); });
+    btnExportJSON.addEventListener('click', () => {
+      const exportData = { _comment: "Struktura: obiekt zawiera 'layers' – tablicę warstw. Każda warstwa to 2D tablica komórek z obiektami {type, value}. Nawet przy jednej warstwie eksportujemy jako tablicę.", layers: layers };
+      const jsonStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "plan.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    btnExportSCHEM.addEventListener('click', () => { var exportModal = new bootstrap.Modal(document.getElementById('exportModal')); exportModal.show(); });
+    btnImportJSON.addEventListener('click', () => { importFileInput.click(); });
+    importFileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const content = e.target.result;
+          const imported = JSON.parse(content);
+          if (imported.layers && Array.isArray(imported.layers)) {
+            layers = imported.layers;
+            currentLayer = 0;
+            updateLayerList();
+            drawEverything();
+            alert(locales[currentLocale].help.importSuccess);
+          } else {
+            alert(locales[currentLocale].help.importError);
+          }
+        } catch (err) { alert("Błąd importu JSON: " + err); }
+      };
+      reader.readAsText(file);
+    });
+    function getCellFromPixel(pixelX, pixelY) {
+      const rect = canvas.getBoundingClientRect();
+      const realX = pixelX - rect.left, realY = pixelY - rect.top;
+      return { cellX: Math.floor(realX / CELL_SIZE), cellY: Math.floor(realY / CELL_SIZE) };
+    }
+    document.getElementById('btnExportConfirm').addEventListener('click', () => {
+      const dataVersion = parseInt(document.getElementById('minecraftVersion').value, 10);
+      const width = gridWidth, height = layers.length, length = gridHeight;
+      let palette = { "minecraft:air": 0 };
+      let nextId = 1;
+      let blockData = new Array(width * height * length).fill(0);
+      for (let y = 0; y < height; y++) {
+        for (let z = 0; z < length; z++) {
+          for (let x = 0; x < width; x++) {
+            const index = (y * length + z) * width + x;
+            const cell = layers[y][z] ? layers[y][z][x] : null;
+            let blockName = "minecraft:air";
+            if (cell) {
+              if (cell.type === 'block') { blockName = "minecraft:" + cell.value; }
+              else if (cell.type === 'color') { blockName = "minecraft:concrete"; }
+            }
+            if (!(blockName in palette)) { palette[blockName] = nextId; nextId++; }
+            blockData[index] = palette[blockName];
+          }
+        }
+      }
+      const schemData = {
+        Version: 2,
+        DataVersion: dataVersion,
+        Size: [width, height, length],
+        Palette: palette,
+        PaletteMax: nextId,
+        BlockData: blockData,
+        BlockEntities: []
+      };
+      const schemStr = JSON.stringify(schemData, null, 2);
+      const blob = new Blob([schemStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "plan.schem";
+      a.click();
+      URL.revokeObjectURL(url);
+      var exportModalEl = document.getElementById('exportModal');
+      var modal = bootstrap.Modal.getInstance(exportModalEl);
+      modal.hide();
+    });
+
+    // Modal handling
+    document.querySelectorAll('.delete,.modal-background,[data-close-modal]').forEach(el => {
+      el.addEventListener('click', () => {
+        el.closest('.modal').classList.remove('is-active');
+      });
+    });
+
+    // Show modal
+    function showModal(modalId) {
+      document.getElementById(modalId).classList.add('is-active');
+    }
+
+    // Dark mode toggle
+    document.getElementById('darkModeCheckbox').addEventListener('change', function() {
+      document.body.classList.toggle('is-dark', this.checked);
+    });
+
+    // Update block search placeholder
+    blockSearch.placeholder = locales[currentLocale].help.blockSearch;
+  </script>
+</body>
+</html>
